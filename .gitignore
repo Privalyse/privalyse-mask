@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+venv/
+.venv/
+.pytest_cache/
+dist/
+build/
+*.egg-info/
+.env
+
+
+.github/copilot-instructions.md
