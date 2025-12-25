@@ -18,12 +18,13 @@ STOP_WORDS = {
 }
 
 class PrivalyseMasker:
-    def __init__(self, languages: List[str] = ["en", "de"], allow_list: List[str] = [], seed: str = ""):
+    def __init__(self, languages: List[str] = ["en", "de"], allow_list: List[str] = [], seed: str = "", model_size: str = "lg"):
         """
         Initialize the PrivalyseMasker.
         :param languages: List of languages for Presidio (e.g. ["en", "de"])
         :param allow_list: List of terms that should NEVER be masked (e.g. Company names)
         :param seed: Optional salt string to randomize hashes per project/session.
+        :param model_size: Spacy model size to use ("sm", "md", "lg"). Default is "lg".
         """
         self.allow_list = set(word.lower() for word in allow_list)
         self.allow_list.update(STOP_WORDS)
@@ -36,17 +37,10 @@ class PrivalyseMasker:
                 "models": []
             }
             
-            # Map common languages to their large spacy models
-            model_map = {
-                "en": "en_core_web_lg",
-                "de": "de_core_news_lg",
-                "es": "es_core_news_lg",
-                "fr": "fr_core_news_lg",
-                "it": "it_core_news_lg"
-            }
-            
             for lang in languages:
-                model_name = model_map.get(lang, f"{lang}_core_web_lg") # Fallback
+                # English uses 'web', others (de, fr, es, it) usually use 'news'
+                model_type = "web" if lang == "en" else "news"
+                model_name = f"{lang}_core_{model_type}_{model_size}"
                 nlp_configuration["models"].append({"lang_code": lang, "model_name": model_name})
 
             provider = NlpEngineProvider(nlp_configuration=nlp_configuration)
@@ -54,13 +48,13 @@ class PrivalyseMasker:
             
             self.analyzer = AnalyzerEngine(nlp_engine=nlp_engine, supported_languages=languages)
             # Add custom recognizers
-            print("DEBUG: Adding custom recognizers...")
+            # print("DEBUG: Adding custom recognizers...")
             
             for lang in languages:
                 self.analyzer.registry.add_recognizer(GermanIDRecognizer(supported_language=lang))
                 self.analyzer.registry.add_recognizer(SpacedIBANRecognizer(supported_language=lang))
             
-            print(f"DEBUG: Registry size: {len(self.analyzer.registry.recognizers)}")
+            # print(f"DEBUG: Registry size: {len(self.analyzer.registry.recognizers)}")
         except Exception as e:
             logger.warning(f"Failed to initialize AnalyzerEngine: {e}")
             logger.warning("Ensure you have installed 'presidio-analyzer' and downloaded spacy models.")

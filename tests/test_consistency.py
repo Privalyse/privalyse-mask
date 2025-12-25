@@ -3,8 +3,8 @@ from privalyse_mask import PrivalyseMasker
 
 class TestConsistency(unittest.TestCase):
     def test_consistency_across_instances(self):
-        masker1 = PrivalyseMasker(languages=["en"])
-        masker2 = PrivalyseMasker(languages=["en"])
+        masker1 = PrivalyseMasker(languages=["en"], model_size="sm")
+        masker2 = PrivalyseMasker(languages=["en"], model_size="sm")
         
         text = "Peter Parker"
         
@@ -21,7 +21,7 @@ class TestConsistency(unittest.TestCase):
         self.assertTrue(masked1.startswith("{Name_"))
 
     def test_consistency_within_text(self):
-        masker = PrivalyseMasker(languages=["en"])
+        masker = PrivalyseMasker(languages=["en"], model_size="sm")
         text = "Peter Parker met Peter Parker."
         
         masked, mapping = masker.mask(text)
@@ -35,11 +35,11 @@ class TestConsistency(unittest.TestCase):
         text = "Peter Parker"
         
         # Seed A
-        maskerA = PrivalyseMasker(languages=["en"], seed="ProjectA")
+        maskerA = PrivalyseMasker(languages=["en"], seed="ProjectA", model_size="sm")
         maskedA, _ = maskerA.mask(text)
         
         # Seed B
-        maskerB = PrivalyseMasker(languages=["en"], seed="ProjectB")
+        maskerB = PrivalyseMasker(languages=["en"], seed="ProjectB", model_size="sm")
         maskedB, _ = maskerB.mask(text)
         
         print(f"Seed A: {maskedA}")
@@ -49,7 +49,7 @@ class TestConsistency(unittest.TestCase):
         self.assertNotEqual(maskedA, maskedB)
         
         # Same seed should be same
-        maskerA2 = PrivalyseMasker(languages=["en"], seed="ProjectA")
+        maskerA2 = PrivalyseMasker(languages=["en"], seed="ProjectA", model_size="sm")
         maskedA2, _ = maskerA2.mask(text)
         self.assertEqual(maskedA, maskedA2)
 
