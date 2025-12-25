@@ -2,11 +2,11 @@
 
 # 🛡️ Privalyse Mask: Privacy Layer for LLMs & RAG
 
-[![PyPI version](https://badge.fury.io/py/privalyse-mask.svg)](https://badge.fury.io/py/privalyse-mask)
+[![PyPI version](https://img.shields.io/pypi/v/privalyse-mask.svg)](https://pypi.org/project/privalyse-mask/)
 [![Downloads](https://pepy.tech/badge/privalyse-mask/month)](https://pepy.tech/project/privalyse-mask)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Tests](https://github.com/Privalyse/privalyse-mask/actions/workflows/test.yml/badge.svg)](https://github.com/Privalyse/privalyse-mask/actions/workflows/test.yml)
-[![Python Versions](https://img.shields.io/pypi/pyversions/privalyse-mask.svg)](https://pypi.org/project/privalyse-mask/)
+[![Python Versions](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://pypi.org/project/privalyse-mask/)
 
 **Make your LLM & RAG pipelines privacy-aware in 3 lines of code.**
 
