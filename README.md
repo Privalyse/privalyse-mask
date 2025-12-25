@@ -1,166 +1,163 @@
-# 🛡️ Privalyse Mask
-
-### **Redefining Privacy in AI-Applications.**
-#### *The Privacy-Protection Layer for your LLM Pipeline.*
+# 🛡️ Privalyse Mask: Privacy Layer for LLMs & RAG
 
 [![PyPI version](https://badge.fury.io/py/privalyse-mask.svg)](https://badge.fury.io/py/privalyse-mask)
+[![Downloads](https://pepy.tech/badge/privalyse-mask/month)](https://pepy.tech/project/privalyse-mask)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Tests](https://github.com/Privalyse/privalyse-mask/actions/workflows/test.yml/badge.svg)](https://github.com/Privalyse/privalyse-mask/actions/workflows/test.yml)
+[![Python Versions](https://img.shields.io/pypi/pyversions/privalyse-mask.svg)](https://pypi.org/project/privalyse-mask/)
 
----
+**Make your LLM & RAG pipelines privacy-aware in 3 lines of code.**
 
-## 💥 Stop choosing between Privacy and High-Quality Answers.
+`privalyse-mask` is the middleware for privacy-first AI. It pseudonymizes sensitive data (PII) *before* it hits OpenAI, Anthropic, or your Vector DB, and restores it *after* the response—preserving full context for the model.
 
-**Privalyse Mask** is the missing link that makes LLMs GDPR-compliant **without making them stupid.**
+- **Peter** → `{Name_s73nd}` (Preserves entity type and uniqueness)
+- **12.10.2000** → `{Date_October_2000}` (Preserves temporal context)
+- **DE93...** → `{German_IBAN}` (Preserves financial context)
 
-Most tools destroy data to save it. We don't.
-We transform sensitive PII into **Semantic Surrogates**—tokens that preserve gender, culture, geography, and structure—so your AI still "gets it" while the data stays safe.
+![Privalyse Mask Demo](assets/demo.gif)
 
-**Zero Leaks. Full Context. 100% Reversible.**
-
-> ⭐ **Star this repository if you believe in Privacy-First AI!**
-
----
-
-## 🧠 The Dilemma: Utility vs. Privacy
-When sending data to an LLM, you usually have two bad options:
-1.  **Send Everything**: You risk GDPR fines and data leaks.
-2.  **Redact Everything**: The LLM becomes stupid. "John from Berlin" becomes `[PERSON] from [LOCATION]`. The model loses gender, culture, and geography.
-
-## 💡 The Solution: Semantic Masking
-**Privalyse Mask** solves this by replacing sensitive entities with **Context-Aware, Reversible Surrogates**. We preserve the *meaning* while hiding the *identity*.
-
-| Original Input | Standard Redaction | Privalyse Mask |
-| :--- | :--- | :--- |
-| *"John Smith lives at 123 Main St, New York."* | `[PERSON] lives at [ADDRESS].` | `"{User_61173_Prename_John} lives at {Address_in_New York_Street_cb7e6}."` |
-| *"Max Mustermann wohnt in Berlin."* | `[PERSON] wohnt in [LOCATION].` | `"{User_44aa4_Prename_Max} wohnt in {Address_in_Berlin}."` |
-| *"Call me at +49 30 123456."* | `Call me at [PHONE].` | `Call me at {Phone_DE}.` |
-
-✅ **The Model Understands:** "This is a male person named John living in NYC."
-❌ **The Model Doesn't Know:** Who exactly it is or where exactly they live.
-
----
-
-## ⚡ Usage in 3 Lines
+## ⚡ Quick Start
 
 ```python
 from privalyse_mask import PrivalyseMasker
 
-# Automatically loads EN, DE, FR, ES, IT models
-masker = PrivalyseMasker() 
+# 1. Mask PII (Peter -> {Name_x92}, Berlin -> {City_B})
+masker = PrivalyseMasker()
+safe_prompt, mapping = masker.mask("Peter lives in Berlin and uses IBAN DE12...")
 
-masked_text, mapping = masker.mask("John lives in Berlin.")
-# Result: "{User_a1b2_Prename_John} lives in {Address_in_Berlin}."
+# 2. Run LLM (The model sees structure, not secrets)
+# ... llm.invoke(safe_prompt) ...
+
+# 3. Unmask (Restore original data for the user)
+final_response = masker.unmask(llm_response, mapping)
 ```
 
----
+## 🎯 Why Privalyse Mask?
 
-## ✨ Why Privalyse Mask?
+- **RAG & Chatbots**: Perfect for vector search and conversational AI.
+- **Context-Aware**: Unlike `*****`, we preserve gender, nationality, and formats so the LLM stays smart.
+- **Zero Leakage**: Your raw data never leaves your infrastructure.
 
-### 1. 🌍 True Multilingual Support
-We don't just support English. We have native, fine-tuned recognition for:
-*   🇺🇸 **English** (US/UK)
-*   🇩🇪 **German** (DACH)
-*   🇫🇷 **French**
-*   🇪🇸 **Spanish**
-*   🇮🇹 **Italian**
-
-### 2. 🎭 Granular Control
-Decide exactly how much context you want to reveal.
-*   **`MASK_ALL`**: `{PERSON}` (Maximum Privacy)
-*   **`PARTIAL_MASK`**: `{User_Hash_Prename_John}` (Maximum Utility)
-*   **`KEEP_VISIBLE`**: `Berlin` (Keep Cities visible for context)
-
-### 3. 🔄 100% Reversible & Consistent
-Every masking operation generates a secure, ephemeral mapping. You can perfectly reconstruct the LLM's response.
-*   **Input**: "Hello `{User_a1b2_Prename_John}`..."
-*   **Output**: "Hello John..."
-
-By using a **Seed**, you ensure that "John" is always masked to the same ID across different sessions or chat messages.
-
-### 4. 🆔 Specialized Recognizers
-We go beyond standard NER. We detect:
-*   **German IBANs** (even with spaces)
-*   **German IDs** (Personalausweis)
-*   **Complex Addresses** (Street vs. City separation)
-
----
+```mermaid
+graph LR
+    A[User Input<br/>(PII)] -->|Mask| B(Privalyse Mask)
+    B -->|Safe Prompt| C[LLM]
+    C -->|Safe Response| D(Privalyse Unmask)
+    D -->|Final Response| E[User]
+    style B fill:#f9f,stroke:#333,stroke-width:2px
+    style D fill:#f9f,stroke:#333,stroke-width:2px
+```
 
 ## 🚀 Installation
 
 ```bash
 pip install privalyse-mask
+python -m spacy download en_core_web_lg
 ```
 
-*Note: You will need to download the Spacy models for your desired languages (e.g., `python -m spacy download en_core_web_lg`).*
+## 🛠️ Usage
 
----
-
-## 🛠️ Advanced Configuration
+The core workflow is simple: `mask` the input, send to LLM, and `unmask` the response.
 
 ```python
-from privalyse_mask import PrivalyseMasker, MaskingConfig, MaskingLevel
+from privalyse_mask import PrivalyseMasker
 
-# Configure masking granularity
-config = MaskingConfig(
-    default_level=MaskingLevel.PARTIAL_MASK, # Default: {User_Hash_Prename_John}
-    entity_overrides={
-        "LOCATION": MaskingLevel.KEEP_VISIBLE,   # Keep cities like "Paris" visible
-        "PHONE_NUMBER": MaskingLevel.MASK_ALL,   # Just {PHONE_NUMBER}
-        "EMAIL_ADDRESS": MaskingLevel.MASK_WITH_CONTEXT # {Email_at_gmail.com}
-    }
+# Initialize the masker
+masker = PrivalyseMasker()
+
+# Your sensitive input
+user_input = """
+My name is Peter. I was born on 12.10.2000.
+My IBAN is DE93 3432 2346 4355.
+"""
+
+# 1. Mask the data
+masked_text, mapping = masker.mask(user_input)
+
+print(f"Masked: {masked_text}")
+# Output:
+# "My name is {Name_s73nd}. I was born on {Date_October_2000}.
+# My IBAN is {German_IBAN}."
+
+# 2. Send to LLM (Simulation)
+# llm_response = openai.ChatCompletion.create(..., messages=[{"role": "user", "content": masked_text}])
+llm_response_text = f"Hello {masked_text.split()[3]}, I see your bank account is {masked_text.split()[-1]}."
+
+# 3. Unmask the response
+final_response = masker.unmask(llm_response_text, mapping)
+
+print(f"Response: {final_response}")
+# Output:
+# "Hello Peter, I see your bank account is DE93 3432 2346 4355."
+```
+
+## 🔌 Integrations
+
+### Using with OpenAI SDK
+
+Protect your prompts before they leave your server.
+
+```python
+from openai import OpenAI
+from privalyse_mask import PrivalyseMasker
+
+client = OpenAI()
+masker = PrivalyseMasker()
+
+prompt = "My email is alice@example.com"
+masked_prompt, mapping = masker.mask(prompt)
+
+# Send safe prompt to OpenAI
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": masked_prompt}]
 )
 
-masker = PrivalyseMasker(config=config)
+# Restore PII in the response
+safe_response = masker.unmask(response.choices[0].message.content, mapping)
 ```
 
-### 📂 Handling JSON & Chat History
-You can mask entire JSON objects (e.g., chat history) recursively.
+### Using with LangChain
+
+Easily integrate into your chains.
 
 ```python
-chat_history = [
-    {"role": "user", "content": "My name is John."},
-    {"role": "assistant", "content": "Hello John!"}
-]
+from langchain.prompts import PromptTemplate
+from privalyse_mask import PrivalyseMasker
 
-# mask_struct handles Dicts and Lists recursively
-masked_history, mapping = masker.mask_struct(chat_history)
+masker = PrivalyseMasker()
+
+def safe_invoke(chain, input_text):
+    masked_text, mapping = masker.mask(input_text)
+    response = chain.invoke(masked_text)
+    return masker.unmask(response, mapping)
 ```
 
----
+### Secure Tool Calling
 
-## 🚀 The Vision: The Privacy Hub for AI
+When LLMs call tools (e.g., database lookups), they will use the masked values (e.g., `{Name_x92}`). You must unmask these arguments before executing the tool.
 
-We are building the central nervous system for secure AI development.
+See [examples/tool_calling_example.py](examples/tool_calling_example.py) for a full implementation pattern.
 
-*   **[Privalyse CLI](https://github.com/privalyse/privalyse-cli)**: **The Eyes (Visibility & Detection)**.
-    *   Illuminates the black box.
-    *   Scans your codebase and runtime for vulnerabilities.
-    *   Detects leaks *before* they happen.
+## 🧩 Features
 
-*   **Privalyse Mask**: **The Shield (Proactive Protection)**.
-    *   Safeguards data in real-time.
-    *   Ensures compliance by design.
-    *   Preserves utility through semantic masking.
+- **Context-Aware Masking**: Dates are generalized to Month/Year. IDs are mapped to their type and origin.
+- **Reversible**: A secure mapping object allows for perfect reconstruction of the LLM's response.
+- **Stateless & Secure**: No data is stored persistently; mappings are ephemeral per request.
+- **Extensible**: Built on top of Microsoft Presidio and Spacy.
 
-**Don't just find leaks. Prevent them.**
+## �️ Roadmap
 
----
+We are building the standard for privacy-preserving AI.
 
-## 🌐 The Privalyse Ecosystem
+- ✅ **Multi-language Support** (EN, DE supported, more coming)
+- ✅ **Custom Masking Rules** (Add your own Regex/Logic)
+- 🔄 **LangChain Integration Helper** (In Progress)
+- 🔜 **Streaming Support** (Critical for Chatbots)
+- 🔜 **PII-Presidio Adapter** (Easy migration)
+## 🌟 Vision
 
-We are creating a unified ecosystem where privacy is a catalyst for better AI.
+We believe in maximizing the utility of LLMs without compromising user privacy. By mapping sensitive data to context-rich placeholders, we allow models to understand the *structure* and *nature* of the data without seeing the *actual* data.
+## �📦 License
 
-*   **[Privalyse.com](https://privalyse.com)**: Our Vision & Platform.
-*   **[Privalyse CLI](https://github.com/privalyse/privalyse-cli)**: Scan your codebase.
-*   **Privalyse Mask**: Protect your pipeline.
-
----
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License. See [LICENSE](LICENSE) for details.
