@@ -42,10 +42,10 @@ final_response = masker.unmask(llm_response, mapping)
 
 ```mermaid
 graph LR
-    A[User Input<br/>(PII)] -->|Mask| B(Privalyse Mask)
-    B -->|Safe Prompt| C[LLM]
-    C -->|Safe Response| D(Privalyse Unmask)
-    D -->|Final Response| E[User]
+    A["User Input<br/>(PII)"] -->|Mask| B("Privalyse Mask")
+    B -->|"Safe Prompt"| C["LLM"]
+    C -->|"Safe Response"| D("Privalyse Unmask")
+    D -->|"Final Response"| E["User"]
     style B fill:#f9f,stroke:#333,stroke-width:2px
     style D fill:#f9f,stroke:#333,stroke-width:2px
 ```
