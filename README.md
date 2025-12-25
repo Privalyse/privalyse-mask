@@ -41,13 +41,16 @@ final_response = masker.unmask(llm_response, mapping)
 - **Zero Leakage**: Your raw data never leaves your infrastructure.
 
 ```mermaid
-graph LR
+flowchart LR
     A["User Input<br/>(PII)"] -->|Mask| B("Privalyse Mask")
     B -->|"Safe Prompt"| C["LLM"]
     C -->|"Safe Response"| D("Privalyse Unmask")
     D -->|"Final Response"| E["User"]
-    style B fill:#f9f,stroke:#333,stroke-width:2px
-    style D fill:#f9f,stroke:#333,stroke-width:2px
+    style B fill:#e6f3ff,stroke:#2196f3,stroke-width:2px,color:#000
+    style D fill:#e6f3ff,stroke:#2196f3,stroke-width:2px,color:#000
+    style A fill:#fff,stroke:#333,color:#000
+    style C fill:#fff,stroke:#333,color:#000
+    style E fill:#fff,stroke:#333,color:#000
 ```
 
 ## 🚀 Installation
