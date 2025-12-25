@@ -1,3 +1,3 @@
-from .core import PrivalyseMasker, MaskingConfig, MaskingLevel
+from .core import PrivalyseMasker
 
-__all__ = ["PrivalyseMasker", "MaskingConfig", "MaskingLevel"]
+__all__ = ["PrivalyseMasker"]

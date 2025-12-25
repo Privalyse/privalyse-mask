@@ -1,83 +1,30 @@
-from typing import Tuple, Dict, List, Optional, Union, Any
+from typing import Tuple, Dict, List, Optional
 import logging
 import phonenumbers
-from enum import Enum
-from dataclasses import dataclass, field
 from presidio_analyzer import AnalyzerEngine
-from presidio_analyzer.nlp_engine import NlpEngineProvider
 from .utils import parse_and_format_date, generate_hash_suffix
-from .recognizers import GermanIDRecognizer, SpacedIBANRecognizer, GermanAddressRecognizer, InternationalAddressRecognizer
+from .recognizers import GermanIDRecognizer, SpacedIBANRecognizer
 
 logger = logging.getLogger(__name__)
 
-class MaskingLevel(Enum):
-    MASK_ALL = "mask_all"           # {PERSON}, {ADDRESS}
-    MASK_WITH_HASH = "hash"         # {PERSON_a1b2}, {ADDRESS_c3d4}
-    MASK_WITH_CONTEXT = "context"   # {Address_in_Berlin}, {Date_December_1990}
-    PARTIAL_MASK = "partial"        # {Name_John_a1b2}, {Address_in_Berlin_Street_c3d4}
-    KEEP_VISIBLE = "keep"           # No masking
-
-@dataclass
-class MaskingConfig:
-    default_level: MaskingLevel = MaskingLevel.PARTIAL_MASK
-    # Overrides per entity type (e.g. {"PERSON": MaskingLevel.MASK_WITH_HASH})
-    entity_overrides: Dict[str, MaskingLevel] = field(default_factory=dict)
-    
-    def get_level(self, entity_type: str) -> MaskingLevel:
-        return self.entity_overrides.get(entity_type, self.default_level)
-
 class PrivalyseMasker:
-    def __init__(self, languages: Optional[List[str]] = None, allow_list: List[str] = [], seed: str = "", config: Optional[MaskingConfig] = None):
+    def __init__(self, languages: List[str] = ["en", "de"], allow_list: List[str] = [], seed: str = ""):
         """
         Initialize the PrivalyseMasker.
-        :param languages: List of languages for Presidio (e.g. ["en", "de"]). Defaults to all supported if None.
+        :param languages: List of languages for Presidio (e.g. ["en", "de"])
         :param allow_list: List of terms that should NEVER be masked (e.g. Company names)
         :param seed: Optional salt string to randomize hashes per project/session.
-        :param config: Configuration for masking granularity.
         """
         self.allow_list = set(word.lower() for word in allow_list)
         self.seed = seed
-        self.config = config or MaskingConfig()
         try:
-            # Configure NLP Engine for multiple languages
-            # We prefer 'lg' models but this requires them to be installed.
-            # If not found, Presidio might raise an error.
-            model_config = [
-                {"lang_code": "en", "model_name": "en_core_web_lg"},
-                {"lang_code": "de", "model_name": "de_core_news_lg"},
-                {"lang_code": "fr", "model_name": "fr_core_news_lg"},
-                {"lang_code": "es", "model_name": "es_core_news_lg"},
-                {"lang_code": "it", "model_name": "it_core_news_lg"},
-            ]
-            
-            # If languages is None, use all available in model_config
-            if languages is None:
-                languages = [m["lang_code"] for m in model_config]
-            
-            # Filter for requested languages
-            active_models = [m for m in model_config if m["lang_code"] in languages]
-            
-            if not active_models:
-                # Fallback to default (usually just EN)
-                self.analyzer = AnalyzerEngine()
-            else:
-                provider = NlpEngineProvider(nlp_configuration={
-                    "nlp_engine_name": "spacy", 
-                    "models": active_models
-                })
-                nlp_engine = provider.create_engine()
-                self.analyzer = AnalyzerEngine(nlp_engine=nlp_engine, supported_languages=languages)
-
-            # Add custom recognizers for each supported language
-            # These patterns are specific (e.g. German Address format) but can appear in any language context
-            for lang in languages:
-                self.analyzer.registry.add_recognizer(GermanIDRecognizer(supported_language=lang))
-                self.analyzer.registry.add_recognizer(SpacedIBANRecognizer(supported_language=lang))
-                self.analyzer.registry.add_recognizer(GermanAddressRecognizer(supported_language=lang))
-                self.analyzer.registry.add_recognizer(InternationalAddressRecognizer(supported_language=lang))
+            self.analyzer = AnalyzerEngine(supported_languages=languages)
+            # Add custom recognizers
+            self.analyzer.registry.add_recognizer(GermanIDRecognizer())
+            self.analyzer.registry.add_recognizer(SpacedIBANRecognizer())
         except Exception as e:
             logger.warning(f"Failed to initialize AnalyzerEngine: {e}")
-            logger.warning("Ensure you have installed 'presidio-analyzer' and downloaded spacy models (e.g. en_core_web_lg, de_core_news_lg).")
+            logger.warning("Ensure you have installed 'presidio-analyzer' and downloaded spacy models.")
             self.analyzer = None
 
     def mask(self, text: str, language: str = "en") -> Tuple[str, Dict[str, str]]:
@@ -155,56 +102,31 @@ class PrivalyseMasker:
             unmasked_text = unmasked_text.replace(surrogate, original)
         return unmasked_text
 
-    def _generate_surrogate(self, entity_type: str, value: str) -> Optional[str]:
-        level = self.config.get_level(entity_type)
-        
-        if level == MaskingLevel.KEEP_VISIBLE:
-            return None
-            
-        if level == MaskingLevel.MASK_ALL:
-            return f"{{{entity_type}}}"
-            
-        if level == MaskingLevel.MASK_WITH_HASH:
-            suffix = generate_hash_suffix(value, salt=self.seed)
-            return f"{{{entity_type}_{suffix}}}"
-
-        # --- PERSON ---
+    def _generate_surrogate(self, entity_type: str, value: str) -> str:
         if entity_type == "PERSON":
             suffix = generate_hash_suffix(value, salt=self.seed)
-            
-            if level == MaskingLevel.PARTIAL_MASK:
-                # "Prename within the Mask" -> {User_<Hash>_Prename_<Name>}
-                # Heuristic: First token is First Name
-                parts = value.split()
-                if len(parts) > 0:
-                    first_name = parts[0]
-                    # Ensure first name is not just an initial or title
-                    if len(first_name) > 1 and first_name[0].isupper():
-                        return f"{{User_{suffix}_Prename_{first_name}}}"
-            
-            # Default Context/Hash behavior
-            return f"{{User_{suffix}}}"
+            return f"{{Name_{suffix}}}"
         
-        # --- DATE ---
         elif entity_type == "DATE_TIME":
-            # Context: {Date_December_1990}
             return parse_and_format_date(value)
             
-        # --- IBAN ---
         elif entity_type == "IBAN_CODE":
             # Extract country code (first 2 chars usually)
             country_code = value[:2].upper()
             if country_code.isalpha():
+                # Map common codes to full names if desired, or keep code
+                # User asked for {German_IBAN} for DE
                 country_map = {"DE": "German", "US": "US", "GB": "UK", "FR": "French"}
                 country_name = country_map.get(country_code, country_code)
                 return f"{{{country_name}_IBAN}}"
             return "{IBAN}"
 
-        # --- ID CARDS ---
         elif entity_type == "DE_ID_CARD":
             return "{German_ID}"
             
         elif "PASSPORT" in entity_type or "DRIVER_LICENSE" in entity_type or "ID" in entity_type:
+             # Handle DE_PASSPORT, US_PASSPORT etc.
+             # If type is like DE_PASSPORT, we want {German_Passport} or {German_ID}
              parts = entity_type.split('_')
              if len(parts) > 1 and len(parts[0]) == 2:
                  country_code = parts[0]
@@ -212,18 +134,22 @@ class PrivalyseMasker:
                  country_name = country_map.get(country_code, country_code)
                  id_type = "_".join(parts[1:]).title() # Passport, Driver_License
                  return f"{{{country_name}_{id_type}}}"
+             
+             # Fallback for generic ID types detected by Presidio (like US_DRIVER_LICENSE without underscore sometimes?)
+             # Actually Presidio uses US_DRIVER_LICENSE.
              return f"{{{entity_type}}}"
              
-        # --- EMAIL ---
         elif entity_type == "EMAIL_ADDRESS":
+             # Preserve domain for context (Business vs Personal)
              if "@" in value:
                  domain = value.split("@")[-1]
                  return f"{{Email_at_{domain}}}"
              return "{Email}"
 
-        # --- PHONE ---
         elif entity_type == "PHONE_NUMBER":
+             # Try to extract region/country
              try:
+                 # Assume generic parsing if no region provided, or try to infer
                  parsed = phonenumbers.parse(value, None)
                  region_code = phonenumbers.region_code_for_number(parsed)
                  if region_code:
@@ -232,62 +158,27 @@ class PrivalyseMasker:
                  pass
              return "{Phone}"
              
-        # --- ADDRESS ---
-        elif entity_type == "ADDRESS":
-             # PARTIAL_MASK: {Address_in_Berlin_Street_<Hash>}
-             # CONTEXT: {Address_in_Berlin}
-             
-             city = None
-             # Try to extract city context
-             if "," in value:
-                 parts = value.split(',')
-                 # Case 1: "Berlin, Alexanderplatz 1" -> City is first
-                 first_part = parts[0].strip()
-                 if not any(char.isdigit() for char in first_part) and first_part[0].isupper():
-                     city = first_part
-                 else:
-                     # Case 2: "Musterstraße 42, Munich" -> City is last
-                     last_part = parts[-1].strip()
-                     last_part_no_zip = " ".join([w for w in last_part.split() if not w.isdigit()])
-                     if last_part_no_zip and last_part_no_zip[0].isupper():
-                         city = last_part_no_zip
-             
-             suffix = generate_hash_suffix(value, salt=self.seed)
-             
-             if city:
-                 if level == MaskingLevel.PARTIAL_MASK:
-                     # Keep City visible, mask street with hash
-                     return f"{{Address_in_{city}_Street_{suffix}}}"
-                 else:
-                     # Just City context
-                     return f"{{Address_in_{city}}}"
-             
-             return f"{{Address_{suffix}}}"
-
-        # --- LOCATION (Generic) ---
         elif entity_type == "LOCATION":
-             # Heuristic: If it contains digits, it's likely a specific address
+             # Heuristic: If it contains digits, it's likely a specific address (Street + Number)
+             # Or if it contains common street suffixes
              address_indicators = ["street", "st.", "road", "rd.", "avenue", "ave.", "terrace", "lane", "drive", "way", "platz", "straße", "str.", "weg", "gasse", "allee"]
              lower_val = value.lower()
              
              is_address = any(char.isdigit() for char in value) or any(ind in lower_val for ind in address_indicators)
              
              if is_address:
-                 # Treat as Address
+                 # Try to extract city context from the address string itself
+                 # Heuristic: If comma separated, last part is often City/State/Country
                  if "," in value:
                      parts = value.split(',')
                      potential_city = parts[-1].strip()
+                     # If it looks like a city (no digits, starts with upper case)
                      if potential_city and not any(char.isdigit() for char in potential_city) and potential_city[0].isupper():
-                         if level == MaskingLevel.PARTIAL_MASK:
-                             suffix = generate_hash_suffix(value, salt=self.seed)
-                             return f"{{Address_in_{potential_city}_Street_{suffix}}}"
                          return f"{{Address_in_{potential_city}}}"
                  
                  return f"{{Address_{generate_hash_suffix(value, salt=self.seed)}}}"
              else:
-                 # Generic Location (City/Country) -> Keep visible by default unless MASK_ALL
-                 if level == MaskingLevel.MASK_ALL:
-                     return "{Location}"
+                 # Return None to indicate "do not mask" (Keep Cities/Countries)
                  return None
 
         elif entity_type == "NRP":
