@@ -2,7 +2,7 @@
 
 # 🛡️ Privalyse Mask: Privacy Layer for LLMs & RAG
 
-[![PyPI version](https://img.shields.io/pypi/v/privalyse-mask.svg)](https://pypi.org/project/privalyse-mask/)
+[![PyPI version](https://img.shields.io/pypi/v/privalyse-mask.svg?color=green)](https://pypi.org/project/privalyse-mask/)
 [![Downloads](https://pepy.tech/badge/privalyse-mask/month)](https://pepy.tech/project/privalyse-mask)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Tests](https://github.com/Privalyse/privalyse-mask/actions/workflows/test.yml/badge.svg)](https://github.com/Privalyse/privalyse-mask/actions/workflows/test.yml)
