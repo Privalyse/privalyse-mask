@@ -1,11 +1,21 @@
 from typing import Tuple, Dict, List, Optional
 import logging
+import re
 import phonenumbers
 from presidio_analyzer import AnalyzerEngine
+from presidio_analyzer.nlp_engine import NlpEngineProvider
 from .utils import parse_and_format_date, generate_hash_suffix
 from .recognizers import GermanIDRecognizer, SpacedIBANRecognizer
 
 logger = logging.getLogger(__name__)
+
+# Common false positives for NER (German & English)
+STOP_WORDS = {
+    # German
+    "ich", "du", "er", "sie", "es", "wir", "ihr", "sie", "mein", "dein", "sein", "ihr", "unser", "euer", "ihr", "der", "die", "das",
+    # English
+    "i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you", "your", "yours", "yourself", "yourselves", "he", "him", "his", "himself", "she", "her", "hers", "herself", "it", "its", "itself", "they", "them", "their", "theirs", "themselves"
+}
 
 class PrivalyseMasker:
     def __init__(self, languages: List[str] = ["en", "de"], allow_list: List[str] = [], seed: str = ""):
@@ -16,12 +26,41 @@ class PrivalyseMasker:
         :param seed: Optional salt string to randomize hashes per project/session.
         """
         self.allow_list = set(word.lower() for word in allow_list)
+        self.allow_list.update(STOP_WORDS)
         self.seed = seed
+        
         try:
-            self.analyzer = AnalyzerEngine(supported_languages=languages)
+            # Configure NLP Engine
+            nlp_configuration = {
+                "nlp_engine_name": "spacy",
+                "models": []
+            }
+            
+            # Map common languages to their large spacy models
+            model_map = {
+                "en": "en_core_web_lg",
+                "de": "de_core_news_lg",
+                "es": "es_core_news_lg",
+                "fr": "fr_core_news_lg",
+                "it": "it_core_news_lg"
+            }
+            
+            for lang in languages:
+                model_name = model_map.get(lang, f"{lang}_core_web_lg") # Fallback
+                nlp_configuration["models"].append({"lang_code": lang, "model_name": model_name})
+
+            provider = NlpEngineProvider(nlp_configuration=nlp_configuration)
+            nlp_engine = provider.create_engine()
+            
+            self.analyzer = AnalyzerEngine(nlp_engine=nlp_engine, supported_languages=languages)
             # Add custom recognizers
-            self.analyzer.registry.add_recognizer(GermanIDRecognizer())
-            self.analyzer.registry.add_recognizer(SpacedIBANRecognizer())
+            print("DEBUG: Adding custom recognizers...")
+            
+            for lang in languages:
+                self.analyzer.registry.add_recognizer(GermanIDRecognizer(supported_language=lang))
+                self.analyzer.registry.add_recognizer(SpacedIBANRecognizer(supported_language=lang))
+            
+            print(f"DEBUG: Registry size: {len(self.analyzer.registry.recognizers)}")
         except Exception as e:
             logger.warning(f"Failed to initialize AnalyzerEngine: {e}")
             logger.warning("Ensure you have installed 'presidio-analyzer' and downloaded spacy models.")
@@ -40,6 +79,9 @@ class PrivalyseMasker:
         # Filter overlaps (simple greedy strategy: keep first/longest)
         # Presidio results are not guaranteed to be non-overlapping
         results = self._remove_overlaps(results)
+        
+        # Merge adjacent dates (e.g. "October 5th, 2025" -> "October 5th" + "2025")
+        results = self._merge_adjacent_dates(text, results)
         
         # Sort by start index descending to replace from end
         results.sort(key=lambda x: x.start, reverse=True)
@@ -218,3 +260,35 @@ class PrivalyseMasker:
         
         final_results.append(current)
         return final_results
+
+    def _merge_adjacent_dates(self, text: str, results: List) -> List:
+        """
+        Merges adjacent DATE_TIME entities if they are separated only by spaces/punctuation.
+        """
+        if not results:
+            return []
+            
+        # Sort by start index
+        sorted_results = sorted(results, key=lambda x: x.start)
+        merged_results = []
+        
+        current = sorted_results[0]
+        
+        for next_result in sorted_results[1:]:
+            # Only merge DATE_TIME
+            if current.entity_type == "DATE_TIME" and next_result.entity_type == "DATE_TIME":
+                # Check gap
+                gap = text[current.end:next_result.start]
+                # If gap is small and only punctuation/space
+                if len(gap) <= 3 and re.match(r"^[\s,.-]+$", gap):
+                    # Merge: Extend current to cover next
+                    current.end = next_result.end
+                    # Keep max score
+                    current.score = max(current.score, next_result.score)
+                    continue
+            
+            merged_results.append(current)
+            current = next_result
+            
+        merged_results.append(current)
+        return merged_results

@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2025-12-25
+
+### 🐛 Bug Fixes & Improvements
+-   **Improved Recognition Accuracy**: Added a comprehensive stop-word filter for both German (e.g., "Ich") and English (e.g., "I", "They") to prevent pronouns from being misidentified as names.
+-   **Better IBAN Detection**: Updated `SpacedIBANRecognizer` to handle IBANs with variable spacing and prevent truncation of the last digits.
+-   **Date Merging**: Added logic to merge adjacent date entities (e.g., "October 5th, 2025") into a single semantic placeholder, improving LLM comprehension.
+-   **Robust Initialization**: Fixed `AnalyzerEngine` initialization to correctly load language-specific Spacy models (e.g., `de_core_news_lg` for German) instead of defaulting to English.
+-   **Recognizer Registration**: Custom recognizers are now correctly registered for all configured languages.
+
 ## [0.1.0] - 2025-12-23
 
 ### 🚀 Initial Release

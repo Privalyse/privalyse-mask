@@ -8,3 +8,5 @@ build/
 *.egg-info/
 .env
 *.cast
+.github/copilot-instructions.md
+public
