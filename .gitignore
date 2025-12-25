@@ -7,6 +7,4 @@ dist/
 build/
 *.egg-info/
 .env
-
-
-.github/copilot-instructions.md
+*.cast
