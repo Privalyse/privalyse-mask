@@ -48,13 +48,11 @@ class PrivalyseMasker:
             
             self.analyzer = AnalyzerEngine(nlp_engine=nlp_engine, supported_languages=languages)
             # Add custom recognizers
-            # print("DEBUG: Adding custom recognizers...")
             
             for lang in languages:
                 self.analyzer.registry.add_recognizer(GermanIDRecognizer(supported_language=lang))
                 self.analyzer.registry.add_recognizer(SpacedIBANRecognizer(supported_language=lang))
             
-            # print(f"DEBUG: Registry size: {len(self.analyzer.registry.recognizers)}")
         except Exception as e:
             logger.warning(f"Failed to initialize AnalyzerEngine: {e}")
             logger.warning("Ensure you have installed 'presidio-analyzer' and downloaded spacy models.")
