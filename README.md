@@ -133,6 +133,15 @@ When LLMs call tools (e.g., database lookups), they will use the masked values (
 
 See [examples/tool_calling_example.py](examples/tool_calling_example.py) for a full implementation pattern.
 
+### 📚 Provider Examples
+
+We provide ready-to-run examples for popular LLM providers:
+
+- **Anthropic (Claude)**: [examples/providers/anthropic_example.py](examples/providers/anthropic_example.py)
+- **Ollama (Local LLMs)**: [examples/providers/ollama_example.py](examples/providers/ollama_example.py)
+- **Azure OpenAI**: [examples/providers/azure_openai_example.py](examples/providers/azure_openai_example.py)
+- **LangChain**: [examples/providers/langchain_example.py](examples/providers/langchain_example.py)
+
 ## 🧩 Features
 
 - **Context-Aware Masking**: Dates are generalized to Month/Year. IDs are mapped to their type and origin.
