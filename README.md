@@ -40,7 +40,7 @@ final_response = masker.unmask(llm_response, mapping)
 - **Context-Aware**: Unlike `*****`, we preserve gender, nationality, and formats so the LLM stays smart.
 - **Zero Leakage**: Your raw data never leaves your infrastructure.
 
-![Privalyse Mask Workflow](https://raw.githubusercontent.com/Privalyse/privalyse-mask/main/public/privalyse-mask-workflow.png)
+![Privalyse Mask Workflow](https://privalyse.com/assets/privalyse-mask-workflow.png)
 
 ## 🚀 Installation
 
