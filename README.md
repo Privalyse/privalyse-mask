@@ -138,7 +138,10 @@ See [examples/tool_calling_example.py](examples/tool_calling_example.py) for a f
 We provide ready-to-run examples for popular LLM providers:
 
 - **Anthropic (Claude)**: [examples/providers/anthropic_example.py](examples/providers/anthropic_example.py)
+- **Google Gemini**: [examples/providers/gemini_example.py](examples/providers/gemini_example.py)
 - **Ollama (Local LLMs)**: [examples/providers/ollama_example.py](examples/providers/ollama_example.py)
+- **Hugging Face (Open Source)**: [examples/providers/huggingface_example.py](examples/providers/huggingface_example.py)
+- **Groq (Llama 3)**: [examples/providers/groq_example.py](examples/providers/groq_example.py)
 - **Azure OpenAI**: [examples/providers/azure_openai_example.py](examples/providers/azure_openai_example.py)
 - **LangChain**: [examples/providers/langchain_example.py](examples/providers/langchain_example.py)
 
