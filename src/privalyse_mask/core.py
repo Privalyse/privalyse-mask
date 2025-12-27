@@ -1,8 +1,8 @@
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import logging
 import re
 import phonenumbers
-from presidio_analyzer import AnalyzerEngine
+from presidio_analyzer import AnalyzerEngine, RecognizerResult
 from presidio_analyzer.nlp_engine import NlpEngineProvider
 from .utils import parse_and_format_date, generate_hash_suffix
 from .recognizers import GermanIDRecognizer, SpacedIBANRecognizer
@@ -146,102 +146,167 @@ class PrivalyseMasker:
     def unmask(self, masked_text: str, mapping: Dict[str, str]) -> str:
         """
         Restores the original text using the mapping.
+        
+        Args:
+            masked_text: Text containing surrogate placeholders.
+            mapping: Dictionary mapping surrogates to original values.
+            
+        Returns:
+            The original text with all surrogates replaced.
         """
         unmasked_text = masked_text
-        # Sort mapping keys by length descending to avoid partial replacements if any
+        # Sort mapping keys by length descending to avoid partial replacements
         for surrogate, original in sorted(mapping.items(), key=lambda x: len(x[0]), reverse=True):
             unmasked_text = unmasked_text.replace(surrogate, original)
         return unmasked_text
 
-    def _generate_surrogate(self, entity_type: str, value: str) -> str:
-        if entity_type == "PERSON":
-            suffix = generate_hash_suffix(value, salt=self.seed)
-            return f"{{Name_{suffix}}}"
+    # =========================================================================
+    # Surrogate Generation Methods
+    # =========================================================================
+    
+    # Country code to human-readable name mapping
+    _COUNTRY_MAP: Dict[str, str] = {
+        "DE": "German", "US": "US", "GB": "UK", "FR": "French",
+        "ES": "Spanish", "IT": "Italian", "NL": "Dutch", "AT": "Austrian"
+    }
+    
+    # Address indicators (street suffixes in various languages)
+    _ADDRESS_INDICATORS: List[str] = [
+        "street", "st.", "road", "rd.", "avenue", "ave.", "terrace", "lane",
+        "drive", "way", "platz", "straße", "str.", "weg", "gasse", "allee"
+    ]
+
+    def _generate_surrogate(self, entity_type: str, value: str) -> Optional[str]:
+        """
+        Generate a context-preserving surrogate for a detected entity.
         
-        elif entity_type == "DATE_TIME":
-            return parse_and_format_date(value)
+        Args:
+            entity_type: The type of entity (e.g., "PERSON", "DATE_TIME").
+            value: The actual entity value from the text.
             
-        elif entity_type == "IBAN_CODE":
-            # Extract country code (first 2 chars usually)
-            country_code = value[:2].upper()
-            if country_code.isalpha():
-                # Map common codes to full names if desired, or keep code
-                # User asked for {German_IBAN} for DE
-                country_map = {"DE": "German", "US": "US", "GB": "UK", "FR": "French"}
-                country_name = country_map.get(country_code, country_code)
-                return f"{{{country_name}_IBAN}}"
-            return "{IBAN}"
-
-        elif entity_type == "DE_ID_CARD":
-            return "{German_ID}"
-            
-        elif "PASSPORT" in entity_type or "DRIVER_LICENSE" in entity_type or "ID" in entity_type:
-             # Handle DE_PASSPORT, US_PASSPORT etc.
-             # If type is like DE_PASSPORT, we want {German_Passport} or {German_ID}
-             parts = entity_type.split('_')
-             if len(parts) > 1 and len(parts[0]) == 2:
-                 country_code = parts[0]
-                 country_map = {"DE": "German", "US": "US", "GB": "UK", "FR": "French"}
-                 country_name = country_map.get(country_code, country_code)
-                 id_type = "_".join(parts[1:]).title() # Passport, Driver_License
-                 return f"{{{country_name}_{id_type}}}"
-             
-             # Fallback for generic ID types detected by Presidio (like US_DRIVER_LICENSE without underscore sometimes?)
-             # Actually Presidio uses US_DRIVER_LICENSE.
-             return f"{{{entity_type}}}"
-             
-        elif entity_type == "EMAIL_ADDRESS":
-             # Preserve domain for context (Business vs Personal)
-             if "@" in value:
-                 domain = value.split("@")[-1]
-                 return f"{{Email_at_{domain}}}"
-             return "{Email}"
-
-        elif entity_type == "PHONE_NUMBER":
-             # Try to extract region/country
-             try:
-                 # Assume generic parsing if no region provided, or try to infer
-                 parsed = phonenumbers.parse(value, None)
-                 region_code = phonenumbers.region_code_for_number(parsed)
-                 if region_code:
-                     return f"{{Phone_{region_code}}}"
-             except phonenumbers.NumberParseException:
-                 # Invalid phone number format, use generic placeholder
-                 pass
-             return "{Phone}"
-             
-        elif entity_type == "LOCATION":
-             # Heuristic: If it contains digits, it's likely a specific address (Street + Number)
-             # Or if it contains common street suffixes
-             address_indicators = ["street", "st.", "road", "rd.", "avenue", "ave.", "terrace", "lane", "drive", "way", "platz", "straße", "str.", "weg", "gasse", "allee"]
-             lower_val = value.lower()
-             
-             is_address = any(char.isdigit() for char in value) or any(ind in lower_val for ind in address_indicators)
-             
-             if is_address:
-                 # Try to extract city context from the address string itself
-                 # Heuristic: If comma separated, last part is often City/State/Country
-                 if "," in value:
-                     parts = value.split(',')
-                     potential_city = parts[-1].strip()
-                     # If it looks like a city (no digits, starts with upper case)
-                     if potential_city and not any(char.isdigit() for char in potential_city) and potential_city[0].isupper():
-                         return f"{{Address_in_{potential_city}}}"
-                 
-                 return f"{{Address_{generate_hash_suffix(value, salt=self.seed)}}}"
-             else:
-                 # Return None to indicate "do not mask" (Keep Cities/Countries)
-                 return None
-
-        elif entity_type == "NRP":
-             return f"{{Nationality_{generate_hash_suffix(value, salt=self.seed)}}}"
-             
-        # Default fallback
+        Returns:
+            A surrogate string like "{Name_abc12}" or None to skip masking.
+        """
+        # Dispatch to specialized handlers
+        handler = self._SURROGATE_HANDLERS.get(entity_type)
+        if handler:
+            return handler(self, value)
+        
+        # Check for compound entity types (e.g., DE_PASSPORT, US_DRIVER_LICENSE)
+        if any(keyword in entity_type for keyword in ("PASSPORT", "DRIVER_LICENSE", "ID")):
+            return self._surrogate_for_id_document(entity_type, value)
+        
+        # Default fallback: use entity type + hash
         return f"{{{entity_type}_{generate_hash_suffix(value, salt=self.seed)}}}"
 
-    def _remove_overlaps(self, results):
+    def _surrogate_for_person(self, value: str) -> str:
+        """Generate surrogate for PERSON entities."""
+        suffix = generate_hash_suffix(value, salt=self.seed)
+        return f"{{Name_{suffix}}}"
+
+    def _surrogate_for_date(self, value: str) -> str:
+        """Generate surrogate for DATE_TIME entities."""
+        return parse_and_format_date(value)
+
+    def _surrogate_for_iban(self, value: str) -> str:
+        """Generate surrogate for IBAN_CODE entities, preserving country context."""
+        country_code = value[:2].upper()
+        if country_code.isalpha():
+            country_name = self._COUNTRY_MAP.get(country_code, country_code)
+            return f"{{{country_name}_IBAN}}"
+        return "{IBAN}"
+
+    def _surrogate_for_german_id(self, value: str) -> str:
+        """Generate surrogate for DE_ID_CARD entities."""
+        return "{German_ID}"
+
+    def _surrogate_for_id_document(self, entity_type: str, value: str) -> str:
         """
-        Remove overlapping entities, preferring higher score or longer length.
+        Generate surrogate for passport/driver license/ID entities.
+        
+        Handles compound types like DE_PASSPORT, US_DRIVER_LICENSE.
+        """
+        parts = entity_type.split('_')
+        if len(parts) > 1 and len(parts[0]) == 2:
+            country_code = parts[0]
+            country_name = self._COUNTRY_MAP.get(country_code, country_code)
+            id_type = "_".join(parts[1:]).title()
+            return f"{{{country_name}_{id_type}}}"
+        return f"{{{entity_type}}}"
+
+    def _surrogate_for_email(self, value: str) -> str:
+        """Generate surrogate for EMAIL_ADDRESS entities, preserving domain."""
+        if "@" in value:
+            domain = value.split("@")[-1]
+            return f"{{Email_at_{domain}}}"
+        return "{Email}"
+
+    def _surrogate_for_phone(self, value: str) -> str:
+        """Generate surrogate for PHONE_NUMBER entities, preserving region."""
+        try:
+            parsed = phonenumbers.parse(value, None)
+            region_code = phonenumbers.region_code_for_number(parsed)
+            if region_code:
+                return f"{{Phone_{region_code}}}"
+        except phonenumbers.NumberParseException:
+            pass
+        return "{Phone}"
+
+    def _surrogate_for_location(self, value: str) -> Optional[str]:
+        """
+        Generate surrogate for LOCATION entities.
+        
+        Only masks specific addresses (with street numbers/suffixes).
+        Returns None for generic locations (cities, countries) to preserve context.
+        """
+        lower_val = value.lower()
+        has_digits = any(char.isdigit() for char in value)
+        has_address_indicator = any(ind in lower_val for ind in self._ADDRESS_INDICATORS)
+        
+        if has_digits or has_address_indicator:
+            # It's a specific address - mask it
+            if "," in value:
+                # Try to extract city context from comma-separated address
+                potential_city = value.split(',')[-1].strip()
+                if potential_city and not any(c.isdigit() for c in potential_city) and potential_city[0].isupper():
+                    return f"{{Address_in_{potential_city}}}"
+            return f"{{Address_{generate_hash_suffix(value, salt=self.seed)}}}"
+        
+        # Generic location (city/country) - don't mask
+        return None
+
+    def _surrogate_for_nationality(self, value: str) -> str:
+        """Generate surrogate for NRP (Nationality/Religious/Political) entities."""
+        return f"{{Nationality_{generate_hash_suffix(value, salt=self.seed)}}}"
+
+    # Handler dispatch table for cleaner routing
+    _SURROGATE_HANDLERS: Dict[str, Callable[["PrivalyseMasker", str], Optional[str]]] = {
+        "PERSON": _surrogate_for_person,
+        "DATE_TIME": _surrogate_for_date,
+        "IBAN_CODE": _surrogate_for_iban,
+        "DE_ID_CARD": _surrogate_for_german_id,
+        "EMAIL_ADDRESS": _surrogate_for_email,
+        "PHONE_NUMBER": _surrogate_for_phone,
+        "LOCATION": _surrogate_for_location,
+        "NRP": _surrogate_for_nationality,
+    }
+
+    # =========================================================================
+    # Overlap Resolution
+    # =========================================================================
+
+    def _remove_overlaps(self, results: List[RecognizerResult]) -> List[RecognizerResult]:
+        """
+        Remove overlapping entities using a greedy algorithm.
+        
+        When entities overlap, keeps the one with higher confidence score.
+        If scores are equal, keeps the longer entity.
+        
+        Args:
+            results: List of RecognizerResult from Presidio analysis.
+            
+        Returns:
+            Filtered list with no overlapping entities.
         """
         if not results:
             return []
@@ -271,9 +336,19 @@ class PrivalyseMasker:
         final_results.append(current)
         return final_results
 
-    def _merge_adjacent_dates(self, text: str, results: List) -> List:
+    def _merge_adjacent_dates(self, text: str, results: List[RecognizerResult]) -> List[RecognizerResult]:
         """
-        Merges adjacent DATE_TIME entities if they are separated only by spaces/punctuation.
+        Merge adjacent DATE_TIME entities separated only by whitespace/punctuation.
+        
+        Handles cases like "October 5th, 2025" which Presidio may detect as
+        two separate entities ("October 5th" and "2025").
+        
+        Args:
+            text: The original text being analyzed.
+            results: List of RecognizerResult from Presidio analysis.
+            
+        Returns:
+            List with adjacent dates merged into single entities.
         """
         if not results:
             return []
