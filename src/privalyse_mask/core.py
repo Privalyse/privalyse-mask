@@ -1,4 +1,4 @@
-from typing import Tuple, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple, Union
 import logging
 import re
 import phonenumbers
@@ -105,10 +105,16 @@ class PrivalyseMasker:
             
         return masked_text, mapping
 
-    def mask_struct(self, data: any, language: str = "en") -> Tuple[any, Dict[str, str]]:
+    def mask_struct(self, data: Any, language: str = "en") -> Tuple[Any, Dict[str, str]]:
         """
         Recursively masks strings within a JSON-like structure (dict, list).
-        Returns the masked structure and a combined mapping.
+        
+        Args:
+            data: The data structure to mask (dict, list, or primitive).
+            language: Language code for analysis (default: "en").
+            
+        Returns:
+            A tuple of (masked_data, mapping) where mapping can restore originals.
         """
         combined_mapping = {}
 
