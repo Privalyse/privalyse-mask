@@ -29,8 +29,11 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/privalyse-mask"
-Repository = "https://github.com/yourusername/privalyse-mask"
+Homepage = "https://privalyse.com"
+Repository = "https://github.com/Privalyse/privalyse-mask"
+Documentation = "https://github.com/Privalyse/privalyse-mask#readme"
+Changelog = "https://github.com/Privalyse/privalyse-mask/blob/main/CHANGELOG.md"
+Issues = "https://github.com/Privalyse/privalyse-mask/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/privalyse_mask"]
