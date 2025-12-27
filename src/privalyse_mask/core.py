@@ -53,9 +53,20 @@ class PrivalyseMasker:
                 self.analyzer.registry.add_recognizer(GermanIDRecognizer(supported_language=lang))
                 self.analyzer.registry.add_recognizer(SpacedIBANRecognizer(supported_language=lang))
             
-        except Exception as e:
+        except OSError as e:
+            # OSError is raised when spacy model is not found
+            logger.warning(f"Failed to load spacy model: {e}")
+            logger.warning("Run: python -m spacy download <model_name>")
+            self.analyzer = None
+        except ImportError as e:
+            # ImportError when presidio or spacy not installed
+            logger.warning(f"Missing dependency: {e}")
+            logger.warning("Run: pip install presidio-analyzer spacy")
+            self.analyzer = None
+        except (ValueError, RuntimeError) as e:
+            # ValueError: invalid configuration
+            # RuntimeError: other initialization failures
             logger.warning(f"Failed to initialize AnalyzerEngine: {e}")
-            logger.warning("Ensure you have installed 'presidio-analyzer' and downloaded spacy models.")
             self.analyzer = None
 
     def mask(self, text: str, language: str = "en") -> Tuple[str, Dict[str, str]]:
@@ -194,7 +205,8 @@ class PrivalyseMasker:
                  region_code = phonenumbers.region_code_for_number(parsed)
                  if region_code:
                      return f"{{Phone_{region_code}}}"
-             except:
+             except phonenumbers.NumberParseException:
+                 # Invalid phone number format, use generic placeholder
                  pass
              return "{Phone}"
              
