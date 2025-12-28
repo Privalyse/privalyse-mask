@@ -34,6 +34,15 @@ safe_prompt, mapping = masker.mask("Peter lives in Berlin and uses IBAN DE12..."
 final_response = masker.unmask(llm_response, mapping)
 ```
 
+## 📚 Documentation
+
+For full details, check out our [**Documentation**](docs/index.md):
+
+-   [**Getting Started**](docs/getting_started.md): Installation & Basic Usage
+-   [**Advanced Usage**](docs/advanced_usage.md): Configuration, Custom Recognizers, Structure Masking
+-   [**Integrations**](docs/integrations.md): OpenAI, LangChain, RAG
+-   [**API Reference**](docs/api.md): Class & Method details
+
 ## 🎯 Why Privalyse Mask?
 
 - **RAG & Chatbots**: Perfect for vector search and conversational AI.
