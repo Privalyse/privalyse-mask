@@ -10,3 +10,4 @@ build/
 *.cast
 .github/copilot-instructions.md
 public
+publish/

@@ -5,20 +5,40 @@ build-backend = "hatchling.build"
 [project]
 name = "privalyse-mask"
 version = "0.1.1"
-description = "Advanced PII pseudonymization for LLM context preservation."
+description = "Mask sensitive data for LLMs without losing context. Reversible, local, open-source."
 readme = "README.md"
 requires-python = ">=3.8"
 license = "MIT"
 authors = [
     { name = "Privalyse Team", email = "hello@privalyse.ai" },
 ]
+keywords = [
+    "pii",
+    "privacy",
+    "llm",
+    "rag",
+    "masking",
+    "anonymization",
+    "presidio",
+    "spacy",
+    "gdpr",
+    "openai",
+    "langchain",
+    "nlp",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Security",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing",
 ]
 dependencies = [
     "presidio-analyzer>=2.2.0",
