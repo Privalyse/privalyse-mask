@@ -1,4 +1,5 @@
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+import asyncio
 import logging
 import re
 import phonenumbers
@@ -158,6 +159,60 @@ class PrivalyseMasker:
         # Sort mapping keys by length descending to avoid partial replacements
         for surrogate, original in sorted(mapping.items(), key=lambda x: len(x[0]), reverse=True):
             unmasked_text = unmasked_text.replace(surrogate, original)
+        return unmasked_text
+
+    # =========================================================================
+    # Async Methods
+    # =========================================================================
+
+    async def mask_async(self, text: str, language: str = "en") -> Tuple[str, Dict[str, str]]:
+        """
+        Async version of mask(). Runs the CPU-bound masking in a thread pool.
+        
+        Useful for async web frameworks (FastAPI, aiohttp) to avoid blocking
+        the event loop during PII analysis.
+        
+        Args:
+            text: The text to mask.
+            language: Language code for analysis (default: "en").
+            
+        Returns:
+            A tuple of (masked_text, mapping).
+        """
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.mask, text, language)
+
+    async def mask_struct_async(self, data: Any, language: str = "en") -> Tuple[Any, Dict[str, str]]:
+        """
+        Async version of mask_struct(). Runs the CPU-bound masking in a thread pool.
+        
+        Ideal for masking entire chat histories without blocking async handlers.
+        
+        Args:
+            data: The data structure to mask (dict, list, or primitive).
+            language: Language code for analysis (default: "en").
+            
+        Returns:
+            A tuple of (masked_data, mapping).
+        """
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.mask_struct, data, language)
+
+    async def unmask_async(self, masked_text: str, mapping: Dict[str, str]) -> str:
+        """
+        Async version of unmask(). Runs string replacement in a thread pool.
+        
+        Note: unmask() is fast, but this keeps API symmetry for async codebases.
+        
+        Args:
+            masked_text: Text containing surrogate placeholders.
+            mapping: Dictionary mapping surrogates to original values.
+            
+        Returns:
+            The original text with all surrogates replaced.
+        """
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.unmask, masked_text, mapping)
         return unmasked_text
 
     # =========================================================================

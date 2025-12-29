@@ -129,12 +129,16 @@ See: [`docs/integrations.md`](docs/integrations.md)
 * **Extensible**
   (Built on Presidio + spaCy)
 
+* **Async support**
+  (Non-blocking for FastAPI, aiohttp, etc.)
+
 ---
 
 ## 🗺️ Roadmap
 
-* ✅ Multi-language support (EN, DE)
+* ✅ Multi-language support (EN, DE, FR, ES)
 * ✅ Custom masking rules
+* ✅ Async API for web frameworks
 * 🔄 Helper utilities for LLM frameworks
 * 🔜 Streaming support (for chat use cases)
 

@@ -70,3 +70,49 @@ Restores the original PII in the text using the provided mapping.
 
 **Returns**:
 -   `str`: The text with surrogates replaced by their original values.
+
+---
+
+## Async Methods
+
+For async web frameworks (FastAPI, aiohttp, Starlette), use these non-blocking variants. They run the CPU-bound Presidio analysis in a thread pool via `asyncio.run_in_executor()`.
+
+### `mask_async`
+
+```python
+async def mask_async(self, text: str, language: str = "en") -> Tuple[str, Dict[str, str]]
+```
+
+Async version of `mask()`. Same parameters and return values.
+
+### `mask_struct_async`
+
+```python
+async def mask_struct_async(self, data: Any, language: str = "en") -> Tuple[Any, Dict[str, str]]
+```
+
+Async version of `mask_struct()`. Ideal for masking entire chat histories without blocking.
+
+### `unmask_async`
+
+```python
+async def unmask_async(self, masked_text: str, mapping: Dict[str, str]) -> str
+```
+
+Async version of `unmask()`. Keeps API symmetry for fully async codebases.
+
+**Example (FastAPI)**:
+
+```python
+from fastapi import FastAPI
+from privalyse_mask import PrivalyseMasker
+
+app = FastAPI()
+masker = PrivalyseMasker()
+
+@app.post("/chat")
+async def chat(user_message: str):
+    masked, mapping = await masker.mask_async(user_message)
+    llm_response = await call_llm(masked)  # Your LLM call
+    return await masker.unmask_async(llm_response, mapping)
+```
