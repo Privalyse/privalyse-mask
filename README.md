@@ -61,7 +61,7 @@ Ours:   "I was born on {Date_October_2000} and live in Berlin"
         → LLM knows: ~25 years old, German timezone, German laws apply
 ```
 
-**privalyse-mask** is the only open-source tool designed specifically to keep LLMs smart while keeping data private.
+**privalyse-mask** is designed specifically to keep LLMs smart while keeping data private.
 
 ![Privalyse Mask Workflow](https://privalyse.com/assets/privalyse-mask-workflow.png)
 
